@@ -27,8 +27,8 @@
 
 .tfwga-tooltip__fallback-icon {
 	border: 1px solid var(--tfwga-border);
-	background: var(--tfwga-icon);
-	color: #fff;
+	background: transparent;
+	color: var(--tfwga-icon);
 	font-size: 0.75rem;
 	font-weight: 700;
 	line-height: 1;
