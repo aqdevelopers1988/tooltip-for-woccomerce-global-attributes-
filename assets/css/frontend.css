@@ -4,22 +4,36 @@
 	--tfwga-text: #ffffff;
 	--tfwga-icon: #2563eb;
 	--tfwga-border: #1d4ed8;
+	--tfwga-popup-bg: #ffffff;
+	--tfwga-popup-text: #00112c;
+	--tfwga-close-bg: #f3f4f6;
+	--tfwga-close-text: #374151;
 }
 
 .tfwga-tooltip {
-	position: relative;
+	position: static;
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
 	width: 1.15rem;
 	height: 1.15rem;
-	margin: 0 0.35rem 0 0;
+	min-width: 1.15rem;
+	min-height: 1.15rem;
+	margin: 0 0.5rem 0 0;
 	padding: 0;
 	border: 0;
+	border-radius: 999px;
 	background: transparent;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	line-height: 1;
+	text-decoration: none;
 	vertical-align: middle;
 	cursor: pointer;
 	outline: none;
+	appearance: none;
 }
 
 .tfwga-tooltip:focus-visible {
@@ -32,8 +46,11 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
+	box-sizing: border-box;
 	width: 1.15rem;
 	height: 1.15rem;
+	min-width: 1.15rem;
+	min-height: 1.15rem;
 	border-radius: 999px;
 }
 
@@ -47,6 +64,9 @@
 }
 
 .tfwga-tooltip__image {
+	border: 0;
+	background: transparent;
+	box-shadow: none;
 	object-fit: contain;
 }
 
@@ -77,38 +97,57 @@
 .tfwga-tooltip-modal__dialog {
 	position: relative;
 	z-index: 1;
+	box-sizing: border-box;
 	width: min(28rem, calc(100vw - 2rem));
 	padding: 2rem;
+	border: 0;
 	border-radius: 0.45rem;
-	background: var(--tfwga-bg);
+	background: var(--tfwga-popup-bg);
 	box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-	color: var(--tfwga-text);
+	color: var(--tfwga-popup-text);
 }
 
 .tfwga-tooltip-modal__close {
 	position: absolute;
 	top: 1.25rem;
 	right: 1.25rem;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
 	width: 2rem;
 	height: 2rem;
 	padding: 0;
 	border: 0;
-	background: transparent;
-	color: currentColor;
-	opacity: 0.7;
-	cursor: pointer;
-	font-size: 2rem;
+	border-radius: 0.2rem;
+	background: var(--tfwga-close-bg);
+	box-shadow: none;
+	color: var(--tfwga-close-text);
+	font-family: Arial, sans-serif;
+	font-size: 1.5rem;
+	font-weight: 400;
 	line-height: 1;
+	text-decoration: none;
+	cursor: pointer;
+	outline: none;
+	appearance: none;
+}
+
+.tfwga-tooltip-modal__close:focus-visible {
+	outline: 2px solid var(--tfwga-border);
+	outline-offset: 2px;
 }
 
 .tfwga-tooltip-modal__title {
 	margin: 0 2rem 1.25rem 0;
+	color: inherit;
 	font-size: 1.35rem;
 	font-weight: 700;
 	line-height: 1.25;
 }
 
 .tfwga-tooltip-modal__content {
+	color: inherit;
 	font-size: 1rem;
 	line-height: 1.6;
 }

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tooltip for WooCommerce Global Attributes
  * Description: Adds configurable tooltips to WooCommerce global product attributes, with color controls and a custom tooltip icon upload.
- * Version: 1.0.2
+ * Version: 1.0.3
  * Author: Codex
  * Text Domain: tooltip-for-woocommerce-global-attributes
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TFWGA_VERSION', '1.0.2' );
+define( 'TFWGA_VERSION', '1.0.3' );
 define( 'TFWGA_PLUGIN_FILE', __FILE__ );
 define( 'TFWGA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'TFWGA_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
@@ -41,8 +41,12 @@ final class TFWGA_Plugin {
 			'background_color' => '#111827',
 			'text_color'       => '#ffffff',
 			'icon_color'       => '#2563eb',
-			'border_color'     => '#1d4ed8',
-			'icon_url'         => '',
+			'border_color'           => '#1d4ed8',
+			'popup_background_color' => '#ffffff',
+			'popup_text_color'       => '#00112c',
+			'close_background_color' => '#f3f4f6',
+			'close_text_color'       => '#374151',
+			'icon_url'               => '',
 		);
 	}
 
@@ -160,11 +164,15 @@ final class TFWGA_Plugin {
 
 		$settings = self::get_settings();
 		$css      = sprintf(
-			'.tfwga-tooltip,.tfwga-tooltip-modal{--tfwga-bg:%1$s;--tfwga-text:%2$s;--tfwga-icon:%3$s;--tfwga-border:%4$s;}',
+			'.tfwga-tooltip,.tfwga-tooltip-modal{--tfwga-bg:%1$s;--tfwga-text:%2$s;--tfwga-icon:%3$s;--tfwga-border:%4$s;--tfwga-popup-bg:%5$s;--tfwga-popup-text:%6$s;--tfwga-close-bg:%7$s;--tfwga-close-text:%8$s;}',
 			esc_html( $settings['background_color'] ),
 			esc_html( $settings['text_color'] ),
 			esc_html( $settings['icon_color'] ),
-			esc_html( $settings['border_color'] )
+			esc_html( $settings['border_color'] ),
+			esc_html( $settings['popup_background_color'] ),
+			esc_html( $settings['popup_text_color'] ),
+			esc_html( $settings['close_background_color'] ),
+			esc_html( $settings['close_text_color'] )
 		);
 
 		wp_add_inline_style( 'tfwga-frontend', $css );
@@ -422,7 +430,7 @@ final class TFWGA_Plugin {
 			: wp_strip_all_tags( $tooltip );
 
 		return sprintf(
-			'<button type="button" class="tfwga-tooltip" aria-label="%1$s" data-tfwga-title="%2$s" data-tfwga-content="%3$s">%4$s</button>',
+			'<span class="tfwga-tooltip" role="button" tabindex="0" aria-label="%1$s" data-tfwga-title="%2$s" data-tfwga-content="%3$s">%4$s</span>',
 			esc_attr( $button_label ),
 			esc_attr( wp_strip_all_tags( $label ) ),
 			esc_attr( wp_kses_post( wpautop( $tooltip ) ) ),
@@ -465,6 +473,22 @@ final class TFWGA_Plugin {
 						<td><input type="text" id="tfwga_border_color" name="<?php echo esc_attr( self::SETTINGS_OPTION ); ?>[border_color]" value="<?php echo esc_attr( $settings['border_color'] ); ?>" class="tfwga-color-field" data-default-color="#1d4ed8" /></td>
 					</tr>
 					<tr>
+						<th scope="row"><label for="tfwga_popup_background_color"><?php esc_html_e( 'Popup background color', 'tooltip-for-woocommerce-global-attributes' ); ?></label></th>
+						<td><input type="text" id="tfwga_popup_background_color" name="<?php echo esc_attr( self::SETTINGS_OPTION ); ?>[popup_background_color]" value="<?php echo esc_attr( $settings['popup_background_color'] ); ?>" class="tfwga-color-field" data-default-color="#ffffff" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tfwga_popup_text_color"><?php esc_html_e( 'Popup text color', 'tooltip-for-woocommerce-global-attributes' ); ?></label></th>
+						<td><input type="text" id="tfwga_popup_text_color" name="<?php echo esc_attr( self::SETTINGS_OPTION ); ?>[popup_text_color]" value="<?php echo esc_attr( $settings['popup_text_color'] ); ?>" class="tfwga-color-field" data-default-color="#00112c" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tfwga_close_background_color"><?php esc_html_e( 'Close button background color', 'tooltip-for-woocommerce-global-attributes' ); ?></label></th>
+						<td><input type="text" id="tfwga_close_background_color" name="<?php echo esc_attr( self::SETTINGS_OPTION ); ?>[close_background_color]" value="<?php echo esc_attr( $settings['close_background_color'] ); ?>" class="tfwga-color-field" data-default-color="#f3f4f6" /></td>
+					</tr>
+					<tr>
+						<th scope="row"><label for="tfwga_close_text_color"><?php esc_html_e( 'Close button icon color', 'tooltip-for-woocommerce-global-attributes' ); ?></label></th>
+						<td><input type="text" id="tfwga_close_text_color" name="<?php echo esc_attr( self::SETTINGS_OPTION ); ?>[close_text_color]" value="<?php echo esc_attr( $settings['close_text_color'] ); ?>" class="tfwga-color-field" data-default-color="#374151" /></td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="tfwga_icon_url"><?php esc_html_e( 'Tooltip icon', 'tooltip-for-woocommerce-global-attributes' ); ?></label></th>
 						<td>
 							<div class="tfwga-icon-control">
@@ -498,7 +522,7 @@ final class TFWGA_Plugin {
 		$settings = is_array( $settings ) ? $settings : array();
 		$clean    = array();
 
-		foreach ( array( 'background_color', 'text_color', 'icon_color', 'border_color' ) as $color_key ) {
+		foreach ( array( 'background_color', 'text_color', 'icon_color', 'border_color', 'popup_background_color', 'popup_text_color', 'close_background_color', 'close_text_color' ) as $color_key ) {
 			$color = isset( $settings[ $color_key ] ) ? sanitize_hex_color( $settings[ $color_key ] ) : '';
 			$clean[ $color_key ] = $color ? $color : $defaults[ $color_key ];
 		}

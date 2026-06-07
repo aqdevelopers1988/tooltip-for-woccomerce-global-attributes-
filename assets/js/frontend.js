@@ -23,10 +23,11 @@
 	}
 
 	function buildTooltipButton(item) {
-		var button = document.createElement('button');
-		button.type = 'button';
+		var button = document.createElement('span');
+		button.setAttribute('role', 'button');
+		button.setAttribute('tabindex', '0');
 		button.className = 'tfwga-tooltip';
-		button.setAttribute('aria-label', item.label);
+		button.setAttribute('aria-label', 'View ' + item.label + ' tooltip');
 		button.dataset.tfwgaTitle = item.label || '';
 		button.dataset.tfwgaContent = item.tooltip || '';
 
@@ -67,7 +68,12 @@
 		var text = labelCell.textContent || '';
 		var spanMarker = '<span class="tfwga-tooltip"';
 		var buttonMarker = '<button type="button" class="tfwga-tooltip"';
+		var spanButtonMarker = '<span class="tfwga-tooltip"';
 		var marker = text.indexOf(buttonMarker) !== -1 ? buttonMarker : spanMarker;
+
+		if (text.indexOf(spanButtonMarker) !== -1) {
+			marker = spanButtonMarker;
+		}
 		var markerIndex = text.indexOf(marker);
 
 		if (markerIndex === -1) {
@@ -106,9 +112,9 @@
 		modal.innerHTML =
 			'<div class="tfwga-tooltip-modal__overlay" data-tfwga-close></div>' +
 			'<div class="tfwga-tooltip-modal__dialog" role="document">' +
-			'<button type="button" class="tfwga-tooltip-modal__close" data-tfwga-close aria-label="' +
+			'<span class="tfwga-tooltip-modal__close" data-tfwga-close role="button" tabindex="0" aria-label="' +
 			(config.closeLabel || 'Close tooltip') +
-			'">×</button>' +
+			'">×</span>' +
 			'<h3 class="tfwga-tooltip-modal__title"></h3>' +
 			'<div class="tfwga-tooltip-modal__content"></div>' +
 			'</div>';
@@ -119,6 +125,11 @@
 		document.documentElement.classList.add('tfwga-modal-open');
 		activeModal = modal;
 		modal.querySelector('.tfwga-tooltip-modal__close').focus();
+	}
+
+
+	function isKeyboardActivation(event) {
+		return event.key === 'Enter' || event.key === ' ' || event.key === 'Spacebar';
 	}
 
 	document.addEventListener('click', function (event) {
@@ -137,6 +148,21 @@
 	});
 
 	document.addEventListener('keydown', function (event) {
+		var trigger = event.target.closest('.tfwga-tooltip');
+		var closeTrigger = event.target.closest('[data-tfwga-close]');
+
+		if (trigger && isKeyboardActivation(event)) {
+			event.preventDefault();
+			openModal(trigger);
+			return;
+		}
+
+		if (closeTrigger && isKeyboardActivation(event)) {
+			event.preventDefault();
+			closeModal();
+			return;
+		}
+
 		if (event.key === 'Escape') {
 			closeModal();
 		}

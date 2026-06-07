@@ -1,10 +1,10 @@
 === Tooltip for WooCommerce Global Attributes ===
-Contributors: TechAdviosrs PK
+Contributors: codex
 Tags: woocommerce, attributes, tooltip, product attributes
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.2
+Stable tag: 1.0.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -20,6 +20,7 @@ A WooCommerce > Attribute Tooltips settings page lets store managers customize:
 * Tooltip text color.
 * Default icon color.
 * Default icon border color.
+* Popup background, popup text, close-button background, and close-icon colors.
 * A custom uploaded tooltip icon.
 
 == Installation ==
@@ -30,6 +31,9 @@ A WooCommerce > Attribute Tooltips settings page lets store managers customize:
 4. Go to WooCommerce > Attribute Tooltips to customize colors and upload an icon.
 
 == Changelog ==
+
+= 1.0.3 =
+* Add popup and close-button color settings, replace tooltip/close buttons with span controls to avoid theme button styling conflicts, and improve icon alignment.
 
 = 1.0.2 =
 * Add click-to-open tooltip icons to custom specification tables such as `.tdv-specifications-table`.
