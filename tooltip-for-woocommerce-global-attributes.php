@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tooltip for WooCommerce Global Attributes
  * Description: Adds configurable tooltips to WooCommerce global product attributes, with color controls and a custom tooltip icon upload.
- * Version: 1.0.0
+ * Version: 1.0.1
  * Author: Codex
  * Text Domain: tooltip-for-woocommerce-global-attributes
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TFWGA_VERSION', '1.0.0' );
+define( 'TFWGA_VERSION', '1.0.1' );
 define( 'TFWGA_PLUGIN_FILE', __FILE__ );
 define( 'TFWGA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'TFWGA_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
@@ -64,7 +64,7 @@ final class TFWGA_Plugin {
 		add_action( 'woocommerce_attribute_deleted', array( __CLASS__, 'delete_attribute_tooltip' ), 10, 3 );
 
 		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_frontend_assets' ) );
-		add_filter( 'woocommerce_attribute_label', array( __CLASS__, 'append_tooltip_to_attribute_label' ), 20, 3 );
+		add_filter( 'woocommerce_display_product_attributes', array( __CLASS__, 'append_tooltips_to_display_attributes' ), 20, 2 );
 	}
 
 	/**
@@ -148,6 +148,7 @@ final class TFWGA_Plugin {
 	 */
 	public static function enqueue_frontend_assets() {
 		wp_enqueue_style( 'tfwga-frontend', TFWGA_PLUGIN_URL . 'assets/css/frontend.css', array(), TFWGA_VERSION );
+		wp_enqueue_script( 'tfwga-frontend', TFWGA_PLUGIN_URL . 'assets/js/frontend.js', array(), TFWGA_VERSION, true );
 
 		$settings = self::get_settings();
 		$css      = sprintf(
@@ -185,7 +186,12 @@ final class TFWGA_Plugin {
 	 */
 	public static function render_edit_attribute_tooltip_field( $attribute ) {
 		$attribute_id = isset( $attribute->attribute_id ) ? absint( $attribute->attribute_id ) : 0;
-		$tooltip      = self::get_attribute_tooltip( $attribute_id );
+
+		if ( ! $attribute_id && isset( $_GET['edit'] ) ) {
+			$attribute_id = absint( wp_unslash( $_GET['edit'] ) );
+		}
+
+		$tooltip = self::get_attribute_tooltip( $attribute_id );
 		wp_nonce_field( 'tfwga_save_attribute_tooltip', 'tfwga_attribute_tooltip_nonce' );
 		?>
 		<tr class="form-field">
@@ -239,33 +245,94 @@ final class TFWGA_Plugin {
 	}
 
 	/**
-	 * Append tooltip markup to global attribute labels on the frontend.
+	 * Append tooltip markup to product attributes displayed in WooCommerce tables.
 	 *
-	 * @param string      $label Attribute label.
-	 * @param string      $name Attribute name or taxonomy.
-	 * @param WC_Product|null $product Product object.
+	 * This intentionally runs on the final display-attributes array instead of the
+	 * generic woocommerce_attribute_label filter. Some themes escape plain labels,
+	 * which caused raw tooltip HTML to appear in the attribute table and broke the
+	 * layout. The display array is the WooCommerce product-page context where HTML
+	 * labels are expected.
+	 *
+	 * @param array<string, array<string, string>> $product_attributes Product attributes prepared for display.
+	 * @param WC_Product                          $product Product object.
+	 * @return array<string, array<string, string>>
+	 */
+	public static function append_tooltips_to_display_attributes( $product_attributes, $product ) {
+		if ( is_admin() || ! function_exists( 'wc_attribute_taxonomy_id_by_name' ) || ! is_array( $product_attributes ) ) {
+			return $product_attributes;
+		}
+
+		foreach ( $product_attributes as $attribute_key => $product_attribute ) {
+			$attribute_id = self::get_attribute_id_from_display_attribute( $attribute_key, $product );
+
+			if ( ! $attribute_id ) {
+				continue;
+			}
+
+			$tooltip = self::get_attribute_tooltip( $attribute_id );
+
+			if ( '' === trim( $tooltip ) ) {
+				continue;
+			}
+
+			if ( ! isset( $product_attribute['label'] ) ) {
+				continue;
+			}
+
+			$product_attributes[ $attribute_key ]['label'] = self::clean_existing_tooltip_markup( $product_attribute['label'] ) . ' ' . self::get_tooltip_markup( $tooltip );
+		}
+
+		return $product_attributes;
+	}
+
+	/**
+	 * Resolve a WooCommerce global attribute ID from the display attribute key.
+	 *
+	 * @param string     $attribute_key Display attribute key.
+	 * @param WC_Product $product Product object.
+	 * @return int
+	 */
+	private static function get_attribute_id_from_display_attribute( $attribute_key, $product ) {
+		$possible_names = array( $attribute_key );
+
+		if ( is_object( $product ) && is_callable( array( $product, 'get_attributes' ) ) ) {
+			$product_attributes = $product->get_attributes();
+
+			if ( isset( $product_attributes[ $attribute_key ] ) && is_object( $product_attributes[ $attribute_key ] ) && is_callable( array( $product_attributes[ $attribute_key ], 'get_name' ) ) ) {
+				$possible_names[] = $product_attributes[ $attribute_key ]->get_name();
+			}
+		}
+
+		foreach ( array_unique( array_filter( $possible_names ) ) as $possible_name ) {
+			$attribute_id = wc_attribute_taxonomy_id_by_name( $possible_name );
+
+			if ( ! $attribute_id && 0 === strpos( $possible_name, 'pa_' ) ) {
+				$attribute_id = wc_attribute_taxonomy_id_by_name( substr( $possible_name, 3 ) );
+			}
+
+			if ( $attribute_id ) {
+				return absint( $attribute_id );
+			}
+		}
+
+		return 0;
+	}
+
+	/**
+	 * Remove previously escaped tooltip markup from labels.
+	 *
+	 * This helps stores recover after the earlier implementation saved/cached escaped
+	 * markup in product attributes or theme output.
+	 *
+	 * @param string $label Attribute label.
 	 * @return string
 	 */
-	public static function append_tooltip_to_attribute_label( $label, $name, $product = null ) {
-		if ( is_admin() || ! function_exists( 'wc_attribute_taxonomy_id_by_name' ) ) {
-			return $label;
-		}
+	private static function clean_existing_tooltip_markup( $label ) {
+		$label = (string) $label;
+		$label = preg_replace( '/\s*&lt;span class=&quot;tfwga-tooltip&quot;.*$/s', '', $label );
+		$label = preg_replace( '/\s*<span class="tfwga-tooltip".*$/s', '', $label );
 
-		$attribute_id = wc_attribute_taxonomy_id_by_name( $name );
-		if ( ! $attribute_id && 0 === strpos( $name, 'pa_' ) ) {
-			$attribute_id = wc_attribute_taxonomy_id_by_name( substr( $name, 3 ) );
-		}
-
-		if ( ! $attribute_id ) {
-			return $label;
-		}
-
-		$tooltip = self::get_attribute_tooltip( $attribute_id );
-		if ( '' === trim( $tooltip ) ) {
-			return $label;
-		}
-
-		return $label . ' ' . self::get_tooltip_markup( $tooltip );
+		return trim( $label );
 	}
 
 	/**
@@ -282,7 +349,7 @@ final class TFWGA_Plugin {
 		if ( $icon_url ) {
 			$icon = sprintf( '<img src="%1$s" alt="" class="tfwga-tooltip__image" />', esc_url( $icon_url ) );
 		} else {
-			$icon = '<span class="tfwga-tooltip__fallback-icon" aria-hidden="true">?</span>';
+			$icon = '<span class="tfwga-tooltip__fallback-icon" aria-hidden="true">!</span>';
 		}
 
 		return sprintf(
@@ -340,7 +407,7 @@ final class TFWGA_Plugin {
 									<img src="<?php echo esc_url( $settings['icon_url'] ); ?>" alt="<?php esc_attr_e( 'Current tooltip icon preview', 'tooltip-for-woocommerce-global-attributes' ); ?>" />
 								<?php endif; ?>
 							</div>
-							<p class="description"><?php esc_html_e( 'Upload a small SVG, PNG, JPG, or GIF icon. If empty, a styled question-mark icon is used.', 'tooltip-for-woocommerce-global-attributes' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Upload a small SVG, PNG, JPG, or GIF icon. If empty, a styled exclamation icon is used.', 'tooltip-for-woocommerce-global-attributes' ); ?></p>
 						</td>
 					</tr>
 				</table>
