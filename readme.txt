@@ -1,10 +1,10 @@
 === Tooltip for WooCommerce Global Attributes ===
-Contributors: codex
+Contributors: TechAdviosrs PK
 Tags: woocommerce, attributes, tooltip, product attributes
 Requires at least: 6.0
 Tested up to: 6.8
 Requires PHP: 7.4
-Stable tag: 1.0.1
+Stable tag: 1.0.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -30,6 +30,9 @@ A WooCommerce > Attribute Tooltips settings page lets store managers customize:
 4. Go to WooCommerce > Attribute Tooltips to customize colors and upload an icon.
 
 == Changelog ==
+
+= 1.0.2 =
+* Add click-to-open tooltip icons to custom specification tables such as `.tdv-specifications-table`.
 
 = 1.0.1 =
 * Fix tooltip rendering in product attribute tables, use an exclamation fallback icon, and restore saved tooltip text on edit screens more reliably.

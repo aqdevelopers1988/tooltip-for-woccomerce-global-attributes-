@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Tooltip for WooCommerce Global Attributes
  * Description: Adds configurable tooltips to WooCommerce global product attributes, with color controls and a custom tooltip icon upload.
- * Version: 1.0.1
+ * Version: 1.0.2
  * Author: Codex
  * Text Domain: tooltip-for-woocommerce-global-attributes
  * Requires Plugins: woocommerce
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'TFWGA_VERSION', '1.0.1' );
+define( 'TFWGA_VERSION', '1.0.2' );
 define( 'TFWGA_PLUGIN_FILE', __FILE__ );
 define( 'TFWGA_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'TFWGA_PLUGIN_PATH', plugin_dir_path( __FILE__ ) );
@@ -149,10 +149,18 @@ final class TFWGA_Plugin {
 	public static function enqueue_frontend_assets() {
 		wp_enqueue_style( 'tfwga-frontend', TFWGA_PLUGIN_URL . 'assets/css/frontend.css', array(), TFWGA_VERSION );
 		wp_enqueue_script( 'tfwga-frontend', TFWGA_PLUGIN_URL . 'assets/js/frontend.js', array(), TFWGA_VERSION, true );
+		wp_localize_script(
+			'tfwga-frontend',
+			'tfwgaFrontend',
+			array(
+				'tooltips'   => self::get_frontend_tooltips_data(),
+				'closeLabel' => esc_html__( 'Close tooltip', 'tooltip-for-woocommerce-global-attributes' ),
+			)
+		);
 
 		$settings = self::get_settings();
 		$css      = sprintf(
-			'.tfwga-tooltip{--tfwga-bg:%1$s;--tfwga-text:%2$s;--tfwga-icon:%3$s;--tfwga-border:%4$s;}',
+			'.tfwga-tooltip,.tfwga-tooltip-modal{--tfwga-bg:%1$s;--tfwga-text:%2$s;--tfwga-icon:%3$s;--tfwga-border:%4$s;}',
 			esc_html( $settings['background_color'] ),
 			esc_html( $settings['text_color'] ),
 			esc_html( $settings['icon_color'] ),
@@ -279,7 +287,9 @@ final class TFWGA_Plugin {
 				continue;
 			}
 
-			$product_attributes[ $attribute_key ]['label'] = self::clean_existing_tooltip_markup( $product_attribute['label'] ) . ' ' . self::get_tooltip_markup( $tooltip );
+			$clean_label = self::clean_existing_tooltip_markup( $product_attribute['label'] );
+
+			$product_attributes[ $attribute_key ]['label'] = self::get_tooltip_markup( $tooltip, $clean_label ) . ' ' . $clean_label;
 		}
 
 		return $product_attributes;
@@ -329,10 +339,65 @@ final class TFWGA_Plugin {
 	 */
 	private static function clean_existing_tooltip_markup( $label ) {
 		$label = (string) $label;
-		$label = preg_replace( '/\s*&lt;span class=&quot;tfwga-tooltip&quot;.*$/s', '', $label );
-		$label = preg_replace( '/\s*<span class="tfwga-tooltip".*$/s', '', $label );
+		$label = preg_replace( '/\s*&lt;(span|button)[^&]*class=&quot;tfwga-tooltip&quot;.*$/s', '', $label );
+		$label = preg_replace( '/\s*<(span|button)[^>]*class="tfwga-tooltip".*$/s', '', $label );
 
 		return trim( $label );
+	}
+
+	/**
+	 * Build tooltip data for custom specification tables rendered outside WooCommerce filters.
+	 *
+	 * @return array<int, array<string, string>>
+	 */
+	private static function get_frontend_tooltips_data() {
+		$tooltips = self::get_all_attribute_tooltips();
+		$data     = array();
+
+		foreach ( $tooltips as $attribute_id => $tooltip ) {
+			if ( '' === trim( (string) $tooltip ) ) {
+				continue;
+			}
+
+			$label = self::get_attribute_label_by_id( absint( $attribute_id ) );
+
+			if ( '' === $label ) {
+				continue;
+			}
+
+			$data[] = array(
+				'label'   => $label,
+				'tooltip' => wp_kses_post( wpautop( $tooltip ) ),
+				'iconUrl' => self::get_settings()['icon_url'],
+			);
+		}
+
+		return $data;
+	}
+
+	/**
+	 * Get a global attribute label by WooCommerce attribute ID.
+	 *
+	 * @param int $attribute_id Attribute ID.
+	 * @return string
+	 */
+	private static function get_attribute_label_by_id( $attribute_id ) {
+		if ( ! function_exists( 'wc_get_attribute_taxonomies' ) || ! function_exists( 'wc_attribute_taxonomy_name' ) || ! function_exists( 'wc_attribute_label' ) ) {
+			return '';
+		}
+
+		foreach ( wc_get_attribute_taxonomies() as $attribute_taxonomy ) {
+			if ( absint( $attribute_taxonomy->attribute_id ) !== absint( $attribute_id ) ) {
+				continue;
+			}
+
+			$taxonomy_name = wc_attribute_taxonomy_name( $attribute_taxonomy->attribute_name );
+			$label         = wc_attribute_label( $taxonomy_name );
+
+			return '' !== $label ? $label : $attribute_taxonomy->attribute_label;
+		}
+
+		return '';
 	}
 
 	/**
@@ -341,7 +406,7 @@ final class TFWGA_Plugin {
 	 * @param string $tooltip Tooltip text.
 	 * @return string
 	 */
-	private static function get_tooltip_markup( $tooltip ) {
+	private static function get_tooltip_markup( $tooltip, $label = '' ) {
 		$settings = self::get_settings();
 		$icon_url = $settings['icon_url'];
 		$icon     = '';
@@ -352,11 +417,16 @@ final class TFWGA_Plugin {
 			$icon = '<span class="tfwga-tooltip__fallback-icon" aria-hidden="true">!</span>';
 		}
 
+		$button_label = '' !== trim( (string) $label )
+			? sprintf( /* translators: %s is an attribute label. */ __( 'View %s tooltip', 'tooltip-for-woocommerce-global-attributes' ), wp_strip_all_tags( $label ) )
+			: wp_strip_all_tags( $tooltip );
+
 		return sprintf(
-			'<span class="tfwga-tooltip" tabindex="0" role="button" aria-label="%1$s">%2$s<span class="tfwga-tooltip__content" role="tooltip">%3$s</span></span>',
-			esc_attr( wp_strip_all_tags( $tooltip ) ),
-			$icon,
-			wp_kses_post( wpautop( $tooltip ) )
+			'<button type="button" class="tfwga-tooltip" aria-label="%1$s" data-tfwga-title="%2$s" data-tfwga-content="%3$s">%4$s</button>',
+			esc_attr( $button_label ),
+			esc_attr( wp_strip_all_tags( $label ) ),
+			esc_attr( wp_kses_post( wpautop( $tooltip ) ) ),
+			$icon
 		);
 	}
 
